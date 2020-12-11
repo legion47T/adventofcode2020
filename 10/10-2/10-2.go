@@ -7,11 +7,17 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"sync"
 )
+
+type sMap struct {
+	mut *sync.RWMutex
+	m   map[int]uint64
+}
 
 var nums []int
 var outMap map[int][]int
-var sumMap map[int]uint64
+var sumMap sMap
 
 func main() {
 	// file, err := os.Open("../test10a.txt")
@@ -55,30 +61,50 @@ func main() {
 	}
 
 	fmt.Println(outMap)
+	mut := sync.RWMutex{}
+	sumMap = sMap{
+		mut: &mut,
+		m:   make(map[int]uint64),
+	}
 
-	sumMap = make(map[int]uint64)
+	sumMap.m[nums[len(nums)-1]] = 1
 
-	res = findPath(0, nums[len(nums)-1])
+	ch := make(chan uint64)
+	go findPath(0, nums[len(nums)-1], ch)
+	res = <-ch
 
 	fmt.Println(res)
 }
 
-func findPath(curr int, target int) uint64 {
-	if curr == target {
-		// fmt.Println("End")
-		sumMap[curr] = 1
-		return 1
-	}
+func findPath(curr int, target int, ch chan uint64) {
+	// if curr == target {
+	// 	// fmt.Println("End")
+	// 	sumMap.mut.Lock()
+	// 	sumMap.m[curr] = 1
+	// 	sumMap.mut.Unlock()
+	// 	ch <- 1
+	// }
 
 	var sum uint64
+	chs := make([]chan uint64, 0)
 	for _, out := range outMap[curr] {
-		if knownSum, ok := sumMap[out]; ok {
+		sumMap.mut.RLock()
+		knownSum, ok := sumMap.m[out]
+		sumMap.mut.RUnlock()
+		if ok {
 			sum += knownSum
 			continue
 		}
-		sum += findPath(out, target)
+		subCh := make(chan uint64)
+		chs = append(chs, subCh)
+		go findPath(out, target, subCh)
 	}
 	// fmt.Println("curr", curr, "outMap[curr]", outMap[curr], "sum", sum)
-	sumMap[curr] = sum
-	return sum
+	for _, subCh := range chs {
+		sum += <-subCh
+	}
+	sumMap.mut.Lock()
+	sumMap.m[curr] = sum
+	sumMap.mut.Unlock()
+	ch <- sum
 }
