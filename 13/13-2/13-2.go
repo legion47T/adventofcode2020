@@ -3,22 +3,13 @@ package main
 import (
 	"bufio"
 	"log"
+	"math/big"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/deanveloper/modmath/v1/bigmod"
 )
-
-type instr struct {
-	action string
-	val    int
-}
-
-type coord struct {
-	x, y int
-}
-
-var instrRegex *regexp.Regexp
 
 func main() {
 	// file, err := os.Open("../test13.txt")
@@ -44,29 +35,13 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var t uint64 = 100000000000000
-	tick := uint64(busses[0])
-	for {
-		found := true
-		for dt, bus := range busses {
-			if dt == 0 {
-				continue
-			}
-			if (t+uint64(dt))%uint64(bus) != 0 {
-				found = false
-				break
-			}
-		}
-		if found {
-			break
-		}
-		if t%10000000 == 0 {
-			log.Println(t)
-		}
-		t += tick
+	crtEs := make([]bigmod.CrtEntry, 0, len(busses))
+
+	for t, bus := range busses {
+		crtEs = append(crtEs, bigmod.CrtEntry{A: big.NewInt(int64(-t)), N: big.NewInt(int64(bus))})
 	}
 
-	res := t
+	res := bigmod.SolveCrtMany(crtEs)
 
 	log.Println(res)
 }
